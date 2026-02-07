@@ -1,0 +1,64 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Company {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  users     User[]
+  tasks     Task[]
+  sections  Section[]
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      String   @default("USER") // ADMIN, USER
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id])
+  assignedTasks Task[]   @relation("AssignedTasks")
+  createdTasks  Task[]   @relation("CreatedTasks")
+  createdAt     DateTime @default(now())
+}
+
+model Section {
+  id        String   @id @default(cuid())
+  title     String
+  order     Int      @default(0)
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id])
+  tasks     Task[]
+  createdAt DateTime @default(now())
+}
+
+model Task {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  status      String   @default("TODO") // Keeping for legacy/backup, but relying on sectionId
+  priority    String   @default("MEDIUM")
+  dueDate     DateTime?
+  
+  assigneeId  String?
+  assignee    User?    @relation("AssignedTasks", fields: [assigneeId], references: [id])
+  
+  creatorId   String
+  creator     User     @relation("CreatedTasks", fields: [creatorId], references: [id])
+  
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id])
+
+  sectionId   String?
+  section     Section? @relation(fields: [sectionId], references: [id])
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
