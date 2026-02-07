@@ -3,7 +3,7 @@
 
 A powerful, intuitive, and secure task management solution built with Next.js 15, Prisma, and Tailwind CSS. Designed for teams to collaborate efficiently with a sleek, modern interface.
 
-![TaskMaster Dashboard](https://via.placeholder.com/800x400?text=TaskMaster+Dashboard+Preview)
+![TaskMaster Dashboard](Dashboard.png)
 
 ## ✨ Features
 
@@ -118,4 +118,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-Built with ❤️ by [Your Name]
+Built with ❤️ by Simran Singh
