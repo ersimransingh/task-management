@@ -3,12 +3,15 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth";
+import { saveAttachmentsForTask } from "./attachments";
+import { logActivity } from "./activity";
 
 export async function createTask(formData: FormData) {
     const title = formData.get("title") as string;
     const description = formData.get("description") as string;
     const priority = formData.get("priority") as string;
     const assigneeId = formData.get("assigneeId") as string;
+    const groupId = formData.get("groupId") as string;
 
     if (!title) return { error: "Title is required" };
 
@@ -17,7 +20,7 @@ export async function createTask(formData: FormData) {
     const creator = session.user;
 
     try {
-        await prisma.task.create({
+        const task = await prisma.task.create({
             data: {
                 title,
                 description,
@@ -26,8 +29,28 @@ export async function createTask(formData: FormData) {
                 companyId: creator.companyId,
                 creatorId: creator.id,
                 assigneeId: assigneeId || null,
+                groupId: groupId || null,
             },
         });
+
+        const files: File[] = [];
+        for (const [key, value] of formData.entries()) {
+            if (key.startsWith("attachment-") && value instanceof File && value.size > 0) {
+                files.push(value);
+            }
+        }
+
+        if (files.length > 0) {
+            await saveAttachmentsForTask(task.id, files, creator.id);
+        }
+
+        await logActivity({
+            action: "CREATE",
+            taskId: task.id,
+            userId: creator.id,
+            metadata: JSON.stringify({ title, priority, assigneeId: assigneeId || null, groupId: groupId || null }),
+        });
+
         revalidatePath("/dashboard");
         return { success: true };
     } catch (error) {
@@ -58,6 +81,7 @@ export async function updateTask(formData: FormData) {
     const title = formData.get("title") as string;
     const description = formData.get("description") as string;
     const priority = formData.get("priority") as string;
+    const groupId = formData.get("groupId") as string;
 
     if (!taskId || !title) return { error: "Missing fields" };
 
@@ -68,7 +92,7 @@ export async function updateTask(formData: FormData) {
     try {
         const task = await prisma.task.findUnique({
             where: { id: taskId },
-            select: { creatorId: true, companyId: true }
+            select: { creatorId: true, companyId: true, title: true }
         });
 
         if (!task) return { error: "Task not found" };
@@ -93,9 +117,29 @@ export async function updateTask(formData: FormData) {
             data: {
                 title,
                 description,
-                priority
+                priority,
+                groupId: groupId || null,
             }
         });
+
+        const files: File[] = [];
+        for (const [key, value] of formData.entries()) {
+            if (key.startsWith("attachment-") && value instanceof File && value.size > 0) {
+                files.push(value);
+            }
+        }
+
+        if (files.length > 0) {
+            await saveAttachmentsForTask(taskId, files, user.id);
+        }
+
+        await logActivity({
+            action: "UPDATE",
+            taskId,
+            userId: user.id,
+            metadata: JSON.stringify({ title, priority, groupId: groupId || null }),
+        });
+
         revalidatePath("/dashboard");
         return { success: true };
 
@@ -117,7 +161,7 @@ export async function deleteTask(formData: FormData) {
     try {
         const task = await prisma.task.findUnique({
             where: { id: taskId },
-            select: { creatorId: true, companyId: true }
+            select: { creatorId: true, companyId: true, title: true }
         });
 
         if (!task) return { error: "Task not found" };
@@ -132,6 +176,13 @@ export async function deleteTask(formData: FormData) {
         if (task.creatorId !== user.id && dbUser.role !== 'ADMIN') {
             return { error: "You do not have permission to delete this task." };
         }
+
+        await logActivity({
+            action: "DELETE",
+            taskId,
+            userId: user.id,
+            metadata: JSON.stringify({ title: task.title }),
+        });
 
         await prisma.task.delete({
             where: { id: taskId }

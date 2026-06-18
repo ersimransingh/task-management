@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth";
+import { logActivity } from "./activity";
 
 export async function createSection(formData: FormData) {
     const title = formData.get("title") as string;
@@ -62,10 +63,36 @@ export async function reorderSections(items: { id: string, order: number }[]) {
 
 export async function moveTask(taskId: string, newSectionId: string) {
     try {
+        const session = await getSession();
+        if (!session?.user) return { error: "Unauthorized" };
+        const user = session.user;
+
+        const task = await prisma.task.findUnique({
+            where: { id: taskId },
+            select: { companyId: true, sectionId: true }
+        });
+
+        if (!task) return { error: "Task not found" };
+        if (task.companyId !== user.companyId) return { error: "Unauthorized" };
+
+        const fromSectionId = task.sectionId;
+        const toSectionId = newSectionId || null;
+
         await prisma.task.update({
             where: { id: taskId },
-            data: { sectionId: newSectionId }
+            data: { sectionId: toSectionId }
         });
+
+        if (fromSectionId !== toSectionId) {
+            await logActivity({
+                action: "MOVE",
+                taskId,
+                userId: user.id,
+                fromSectionId,
+                toSectionId,
+            });
+        }
+
         revalidatePath("/dashboard");
         return { success: true };
     } catch (e) {

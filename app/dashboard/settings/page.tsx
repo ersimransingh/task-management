@@ -26,11 +26,6 @@ export default async function SettingsPage() {
 
     return (
         <div className="space-y-8">
-            <div>
-                <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-                <p className="text-muted-foreground">Manage your account and workspace preferences.</p>
-            </div>
-
             <div className="grid gap-6 md:grid-cols-2">
                 {/* User Profile Card */}
                 <Card className="glass border-gray-200">

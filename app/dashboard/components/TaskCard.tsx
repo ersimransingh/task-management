@@ -71,7 +71,14 @@ export function TaskCard({ task, isOverlay, onClick }: TaskCardProps) {
                 <p className="text-xs text-muted-foreground line-clamp-2">{task.description}</p>
             </CardContent>
             <CardFooter className="p-4 pt-0 flex justify-between items-center text-[10px] text-gray-500">
-                <span>{task.assignee?.name}</span>
+                <div className="flex items-center gap-2">
+                    <span>{task.assignee?.name}</span>
+                    {task.group && (
+                        <span className="px-1.5 py-0.5 rounded border border-purple-200 bg-purple-50 text-purple-600">
+                            {task.group.name}
+                        </span>
+                    )}
+                </div>
                 <span className={`px-1.5 py-0.5 rounded border ${task.priority === 'HIGH' ? 'border-red-200 bg-red-50 text-red-600' :
                     task.priority === 'MEDIUM' ? 'border-orange-200 bg-orange-50 text-orange-600' :
                         'border-blue-200 bg-blue-50 text-blue-600'

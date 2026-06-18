@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { clsx } from "clsx";
-import { LayoutDashboard, Users, Settings, LogOut, CheckSquare } from "lucide-react";
+import { LayoutDashboard, Users, Settings, LogOut, CheckSquare, Folder, BarChart3 } from "lucide-react";
 import { logoutAction } from "@/app/actions/auth";
 
 interface SidebarProps {
@@ -16,7 +16,9 @@ export function Sidebar({ companyName = "TaskMaster", role }: SidebarProps) {
 
     const links = [
         { href: "/dashboard", label: "Tasks", icon: CheckSquare },
+        { href: "/dashboard/reports", label: "Reports", icon: BarChart3 },
         ...(role === "ADMIN" ? [
+            { href: "/dashboard/groups", label: "Groups", icon: Folder },
             { href: "/dashboard/users", label: "Team", icon: Users },
             { href: "/dashboard/settings", label: "Settings", icon: Settings },
         ] : []),

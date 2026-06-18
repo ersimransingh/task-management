@@ -6,26 +6,34 @@ import { Button } from "@/app/components/ui/Button";
 import { Modal } from "@/app/components/ui/Modal";
 import { RichTextEditor } from "@/app/components/ui/RichTextEditor";
 import { Input } from "@/app/components/ui/Input";
+import { FileUploadField } from "./FileUploadField";
 import { createTask } from "@/app/actions/tasks";
 
-// Update props to accept users
 interface CreateTaskButtonProps {
     users: { id: string; name: string }[];
+    groups: { id: string; name: string }[];
 }
 
-export function CreateTaskButton({ users }: CreateTaskButtonProps) {
+export function CreateTaskButton({ users, groups }: CreateTaskButtonProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [description, setDescription] = useState("");
+    const [files, setFiles] = useState<File[]>([]);
 
     async function handleSubmit(formData: FormData) {
         formData.set("description", description); // Manually set rich text content
+
+        files.forEach((file, index) => {
+            formData.append(`attachment-${index}`, file);
+        });
+
         setIsLoading(true);
         const res = await createTask(formData);
         setIsLoading(false);
         if (res?.success) {
             setIsOpen(false);
             setDescription(""); // Reset
+            setFiles([]);
             window.location.reload(); // Force refresh to show new task immediately
         } else if (res?.error) {
             alert(res.error);
@@ -79,6 +87,21 @@ export function CreateTaskButton({ users }: CreateTaskButtonProps) {
                             ))}
                         </select>
                     </div>
+
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium">Group</label>
+                        <select
+                            name="groupId"
+                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                            <option value="" className="bg-card">No group</option>
+                            {groups.map(g => (
+                                <option key={g.id} value={g.id} className="bg-card">{g.name}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <FileUploadField files={files} onFilesChange={setFiles} />
 
                     <div className="flex justify-end pt-4">
                         <Button type="button" variant="ghost" onClick={() => setIsOpen(false)} className="mr-2">

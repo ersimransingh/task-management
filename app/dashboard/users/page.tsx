@@ -25,11 +25,7 @@ export default async function UsersPage() {
 
     return (
         <div className="flex flex-col space-y-8">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Team Members</h1>
-                    <p className="text-muted-foreground">Manage who has access to your workspace.</p>
-                </div>
+            <div className="flex justify-end">
                 <CreateUserButton />
             </div>
 

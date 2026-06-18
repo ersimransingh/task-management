@@ -5,23 +5,29 @@ import { Button } from "@/app/components/ui/Button";
 import { useState } from "react";
 import { updateTask, deleteTask } from "@/app/actions/tasks";
 import { Input } from "@/app/components/ui/Input";
-import { Pencil, Save, X, Trash } from "lucide-react";
+import { Pencil, Trash } from "lucide-react";
 import { RichTextEditor } from "@/app/components/ui/RichTextEditor";
+import { FileUploadField } from "./FileUploadField";
+import { AttachmentList } from "./AttachmentList";
+import { CommentSection } from "./CommentSection";
+import { TaskActivityLog } from "./TaskActivityLog";
 
 interface TaskDetailModalProps {
     task: any;
     isOpen: boolean;
     onClose: () => void;
     currentUserId: string;
+    groups: { id: string; name: string }[];
+    sectionMap?: Record<string, string>;
 }
 
-export function TaskDetailModal({ task, isOpen, onClose, currentUserId }: TaskDetailModalProps) {
+export function TaskDetailModal({ task, isOpen, onClose, currentUserId, groups, sectionMap = {} }: TaskDetailModalProps) {
     const [isEditing, setIsEditing] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
     // Always call hooks at top level
     const [description, setDescription] = useState(task?.description || "");
-    const [localTask, setLocalTask] = useState(task);
+    const [files, setFiles] = useState<File[]>([]);
 
     if (!task) return null;
 
@@ -37,13 +43,18 @@ export function TaskDetailModal({ task, isOpen, onClose, currentUserId }: TaskDe
 
     const handleUpdate = async (formData: FormData) => {
         formData.set("description", description);
+
+        files.forEach((file, index) => {
+            formData.append(`attachment-${index}`, file);
+        });
+
         setIsLoading(true);
         const res = await updateTask(formData);
         setIsLoading(false);
         if (res?.success) {
             setIsEditing(false);
-            // Ideally toast.
-            window.location.reload(); // To reflect changes if router.refresh in parent isn't triggered by this inner component cleanly
+            setFiles([]);
+            window.location.reload();
         } else {
             alert(res?.error);
         }
@@ -68,9 +79,8 @@ export function TaskDetailModal({ task, isOpen, onClose, currentUserId }: TaskDe
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={() => { setIsEditing(false); onClose(); }} title={isEditing ? "Edit Task" : `${task.title} #${task.id.slice(-4)}`} className="max-w-3xl">
+        <Modal isOpen={isOpen} onClose={() => { setIsEditing(false); setFiles([]); onClose(); }} title={isEditing ? "Edit Task" : `${task.title} #${task.id.slice(-4)}`} className="max-w-3xl">
             {isEditing ? (
-                // ... (existing form)
                 <form action={handleUpdate} className="space-y-4 mt-2">
                     <input type="hidden" name="taskId" value={task.id} />
 
@@ -96,6 +106,22 @@ export function TaskDetailModal({ task, isOpen, onClose, currentUserId }: TaskDe
                             <option value="HIGH">High</option>
                         </select>
                     </div>
+
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium">Group</label>
+                        <select
+                            name="groupId"
+                            defaultValue={task.groupId || ""}
+                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                        >
+                            <option value="">No group</option>
+                            {groups.map(g => (
+                                <option key={g.id} value={g.id}>{g.name}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <FileUploadField files={files} onFilesChange={setFiles} />
 
                     <div className="flex justify-end gap-2 pt-4">
                         <Button type="button" variant="ghost" onClick={() => setIsEditing(false)}>Cancel</Button>
@@ -128,6 +154,11 @@ export function TaskDetailModal({ task, isOpen, onClose, currentUserId }: TaskDe
                         <span className="px-2 py-1 rounded text-xs font-medium border border-border bg-muted text-foreground">
                             {task.status || "TODO"}
                         </span>
+                        {task.group && (
+                            <span className="px-2 py-1 rounded text-xs font-medium border border-purple-200 bg-purple-50 text-purple-600">
+                                {task.group.name}
+                            </span>
+                        )}
                     </div>
 
                     <div className="space-y-2">
@@ -155,6 +186,22 @@ export function TaskDetailModal({ task, isOpen, onClose, currentUserId }: TaskDe
                             </div>
                         </div>
                     </div>
+
+                    <AttachmentList
+                        attachments={task.attachments || []}
+                        canDelete={canEdit}
+                    />
+
+                    <CommentSection
+                        taskId={task.id}
+                        comments={task.comments || []}
+                        canDelete={canEdit}
+                    />
+
+                    <TaskActivityLog
+                        activities={task.activities || []}
+                        sectionMap={sectionMap}
+                    />
 
                     <div className="pt-4 flex justify-end">
                         <Button variant="ghost" onClick={onClose}>Close</Button>

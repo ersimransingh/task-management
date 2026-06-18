@@ -1,13 +1,19 @@
 import { prisma } from "@/lib/prisma";
-import { CreateTaskButton } from "./components/CreateTaskButton";
 import { Board } from "./components/Board";
+import { Prisma } from "@prisma/client";
 
 import { getSession } from "@/lib/auth";
 
-export default async function DashboardPage() {
+interface DashboardPageProps {
+    searchParams: Promise<{ q?: string; groupId?: string; assigneeId?: string; priority?: string }>;
+}
+
+export default async function DashboardPage({ searchParams }: DashboardPageProps) {
     const session = await getSession();
     if (!session?.user) return <div>Unauthorized</div>;
     const user = session.user;
+
+    const filters = await searchParams;
 
     // Ensure default sections exist
     const existingSections = await prisma.section.count({ where: { companyId: user.companyId } });
@@ -27,39 +33,66 @@ export default async function DashboardPage() {
         orderBy: { order: 'asc' }
     });
 
+    const where: Prisma.TaskWhereInput = { companyId: user.companyId };
+
+    if (filters.q) {
+        where.OR = [
+            { title: { contains: filters.q } },
+            { description: { contains: filters.q } },
+        ];
+    }
+
+    if (filters.groupId) {
+        where.groupId = filters.groupId;
+    }
+
+    if (filters.assigneeId) {
+        where.assigneeId = filters.assigneeId === "unassigned" ? null : filters.assigneeId;
+    }
+
+    if (filters.priority) {
+        where.priority = filters.priority;
+    }
+
     const tasks = await prisma.task.findMany({
-        where: { companyId: user.companyId },
+        where,
         orderBy: { createdAt: 'desc' },
-        include: { assignee: true, creator: true }
+        include: {
+            assignee: true,
+            creator: true,
+            group: true,
+            comments: {
+                orderBy: { createdAt: 'desc' },
+                include: { user: { select: { id: true, name: true } } }
+            },
+            attachments: {
+                orderBy: { createdAt: 'asc' },
+                include: { uploadedBy: { select: { id: true, name: true } } }
+            },
+            activities: {
+                orderBy: { createdAt: 'desc' },
+                include: { user: { select: { id: true, name: true } } }
+            }
+        }
     });
 
-    // Simple migration in-memory or on-the-fly: map status to sections if sectionId is null
-    // But wait, we just created sections. We can try to map them once.
-    // Ideally, we'd run a background job. For now, let's just let them land in "Backlog" / Unassigned column defined in Board.ts,
-    // OR we assume unassigned tasks go to the first section.
-
-    // Let's passed them as is. The Board handles "unassigned" as a specific column.
-
-    const users = await prisma.user.findMany({
+    const groups = await prisma.group.findMany({
+        where: { companyId: user.companyId },
+        orderBy: { name: 'asc' },
         select: { id: true, name: true }
     });
 
     return (
-        <div className="flex flex-col h-[calc(100vh-4rem)] space-y-4">
-            <div className="flex items-center justify-between shrink-0">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Board</h1>
-                    <p className="text-muted-foreground">Drag and drop tasks to manage workflow.</p>
-                </div>
-                <div className="flex gap-2">
-                    <CreateTaskButton users={users} />
-                </div>
-            </div>
-
+        <div className="flex flex-col h-[calc(100vh-4rem)]">
             <div className="flex-1 min-h-0">
-                <Board initialSections={sections} initialTasks={tasks} currentUserId={user.id} currentUserRole={user.role} />
+                <Board
+                    initialSections={sections}
+                    initialTasks={tasks}
+                    currentUserId={user.id}
+                    currentUserRole={user.role}
+                    groups={groups}
+                />
             </div>
         </div>
     )
 }
-

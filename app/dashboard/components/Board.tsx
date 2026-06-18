@@ -15,12 +15,11 @@ import {
     defaultDropAnimationSideEffects,
 } from "@dnd-kit/core";
 import { SortableContext, sortableKeyboardCoordinates, horizontalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
-import { moveTask, createSection, deleteSection, reorderSections } from "@/app/actions/board";
+import { moveTask, deleteSection, reorderSections } from "@/app/actions/board";
 import { Column } from "./Column";
 import { TaskCard } from "./TaskCard";
 import { TaskDetailModal } from "./TaskDetailModal";
 import { Button } from "@/app/components/ui/Button";
-import { Input } from "@/app/components/ui/Input";
 import { Modal } from "@/app/components/ui/Modal";
 import { useRouter } from "next/navigation";
 
@@ -29,15 +28,20 @@ interface BoardProps {
     initialTasks: any[];
     currentUserId: string;
     currentUserRole: string;
+    groups: { id: string; name: string }[];
 }
 
-export function Board({ initialSections, initialTasks, currentUserId, currentUserRole }: BoardProps) {
+export function Board({ initialSections, initialTasks, currentUserId, currentUserRole, groups }: BoardProps) {
     const router = useRouter();
     const [tasks, setTasks] = useState(initialTasks);
     const [sections, setSections] = useState(initialSections);
     const [activeId, setActiveId] = useState<string | null>(null);
     const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
-    const [isAddSectionOpen, setIsAddSectionOpen] = useState(false);
+
+    // Sync tasks when filters change (initialTasks prop updates)
+    useEffect(() => {
+        setTasks(initialTasks);
+    }, [initialTasks]);
 
     // Delete Confirmation State
     const [sectionToDelete, setSectionToDelete] = useState<string | null>(null);
@@ -140,12 +144,6 @@ export function Board({ initialSections, initialTasks, currentUserId, currentUse
         }
     };
 
-    const handleCreateSection = async (formData: FormData) => {
-        await createSection(formData);
-        setIsAddSectionOpen(false);
-        router.refresh();
-    };
-
     const confirmDeleteSection = (id: string) => {
         setSectionToDelete(id);
         setIsDeleteModalOpen(true);
@@ -197,20 +195,22 @@ export function Board({ initialSections, initialTasks, currentUserId, currentUse
         }
     }, [tasks]);
 
+    // Keep selected task data in sync when tasks update (comments, attachments, filters)
+    useEffect(() => {
+        if (selectedTask) {
+            const updated = tasks.find((t: any) => t.id === selectedTask.id);
+            if (updated) {
+                setSelectedTask(updated);
+            }
+        }
+    }, [tasks]);
+
     const handleTaskClick = (task: any) => {
         setSelectedTask(task);
     };
 
     return (
         <div className="flex flex-col h-full">
-            <div className="flex justify-end p-4">
-                {currentUserRole === "ADMIN" && (
-                    <Button onClick={() => setIsAddSectionOpen(true)} className="gap-2">
-                        <span className="text-xl leading-none">+</span> Create Section
-                    </Button>
-                )}
-            </div>
-
             <DndContext
                 id="kanban-board"
                 sensors={sensors}
@@ -260,16 +260,6 @@ export function Board({ initialSections, initialTasks, currentUserId, currentUse
                 </DragOverlay>
             </DndContext>
 
-            {/* Create Section Modal */}
-            <Modal isOpen={isAddSectionOpen} onClose={() => setIsAddSectionOpen(false)} title="Create Section">
-                <form action={handleCreateSection} className="space-y-4">
-                    <Input name="title" placeholder="Section Name (e.g. Design)" required />
-                    <div className="flex justify-end">
-                        <Button type="submit">Create</Button>
-                    </div>
-                </form>
-            </Modal>
-
             {/* Delete Confirmation Modal */}
             <Modal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} title="Delete Section">
                 <div className="space-y-4">
@@ -293,6 +283,8 @@ export function Board({ initialSections, initialTasks, currentUserId, currentUse
                 isOpen={!!selectedTask}
                 onClose={() => setSelectedTask(null)}
                 currentUserId={currentUserId}
+                groups={groups}
+                sectionMap={Object.fromEntries(sections.map((s: any) => [s.id, s.title]))}
             />
         </div>
     );

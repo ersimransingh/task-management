@@ -36,7 +36,7 @@ export async function loginAction(prevState: any, formData: FormData) {
     redirect("/dashboard");
 }
 
-export async function registerAction(formData: FormData) {
+export async function registerAction(prevState: { error?: string } | undefined, formData: FormData) {
     const companyName = formData.get("companyName") as string;
     const name = formData.get("name") as string;
     const email = formData.get("email") as string;
